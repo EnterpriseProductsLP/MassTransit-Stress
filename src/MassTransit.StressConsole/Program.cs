@@ -1,94 +1,122 @@
-﻿namespace MassTransit.StressConsole
+﻿using System;
+using System.Linq;
+using System.Threading;
+
+using log4net;
+using log4net.Repository.Hierarchy;
+
+using Magnum.Extensions;
+
+using MassTransit.Log4NetIntegration.Logging;
+
+using Topshelf;
+using Topshelf.Logging;
+
+namespace MassTransit.StressConsole
 {
-    using System;
-    using System.Linq;
-    using System.Threading;
-    using log4net;
-    using log4net.Core;
-    using log4net.Repository;
-    using log4net.Repository.Hierarchy;
-    using Log4NetIntegration.Logging;
-    using Magnum.Extensions;
-    using Topshelf;
-    using Topshelf.Logging;
-
-
-    class Program
+    internal class Program
     {
-        static int Main()
+        private static int Main()
         {
             Log4NetLogWriterFactory.Use("log4net.config");
             Log4NetLogger.Use();
 
-            string username = "guest";
-            string password = "guest";
-            var serviceBusUri = new Uri("rabbitmq://localhost/stress_service");
+            var username = "test";
+            var password = "test";
+            var serviceBusUri = new Uri("rabbitmq://tsestmrmq01corp/loadtest_queue");
             ushort heartbeat = 3;
-            int iterations = 1000;
-            int instances = 10;
-            int requestsPerInstance = 1;
-            int messageSize = 128;
-            int prefetchCount = 10;
-            int consumerLimit = 10;
-            string test = "stress";
-            bool cleanup = true;
-            bool mixed = false;
+            var iterations = 10000;
+            var instances = 10;
+            var requestsPerInstance = 1;
+            var messageSize = 128;
+            var prefetchCount = 10;
+            var consumerLimit = 10;
+            var test = "stress";
+            var cleanup = true;
+            var mixed = false;
             string debug = null;
-
 
             int workerThreads;
             int completionPortThreads;
             ThreadPool.GetMinThreads(out workerThreads, out completionPortThreads);
             ThreadPool.SetMinThreads(Math.Max(workerThreads, 100), completionPortThreads);
 
-            return (int)HostFactory.Run(x =>
-            {
-                x.SetDescription("Generates a stressful load on RabbitMQ using MassTransit");
-                x.SetDisplayName("MassTransit RabbitMQ Stress Console");
-                x.SetServiceName("MassTransitStressConsole");
-
-                x.AddCommandLineDefinition("rmqusername", v => username = v);
-                x.AddCommandLineDefinition("rmqpassword", v => password = v);
-                x.AddCommandLineDefinition("uri", v => serviceBusUri = new Uri(v));
-                x.AddCommandLineDefinition("heartbeat", v => heartbeat = ushort.Parse(v));
-                x.AddCommandLineDefinition("iterations", v => iterations = int.Parse(v));
-                x.AddCommandLineDefinition("instances", v => instances = int.Parse(v));
-                x.AddCommandLineDefinition("prefetch", v => prefetchCount = int.Parse(v));
-                x.AddCommandLineDefinition("threads", v => consumerLimit = int.Parse(v));
-                x.AddCommandLineDefinition("requests", v => requestsPerInstance = int.Parse(v));
-                x.AddCommandLineDefinition("test", v => test = v);
-                x.AddCommandLineDefinition("size", v => messageSize = int.Parse(v));
-                x.AddCommandLineDefinition("cleanup", v => cleanup = bool.Parse(v));
-                x.AddCommandLineDefinition("mixed", v => mixed = bool.Parse(v));
-                x.AddCommandLineDefinition("debug", v => debug = v);
-                x.ApplyCommandLine();
-
-                x.Service(hostSettings =>
-                {
-                    if (!string.IsNullOrWhiteSpace(debug))
-                        EnableDebug(debug);
-
-                    if (test == "ingest")
+            return (int)HostFactory.Run(
+                hostConfigurator =>
                     {
-                        return new SelectService(new StressIngestService(serviceBusUri, username, password, heartbeat,
-                            iterations, instances, messageSize, cleanup, mixed, prefetchCount, consumerLimit));
-                    }
+                        hostConfigurator.SetDescription("Generates a stressful load on RabbitMQ using MassTransit");
+                        hostConfigurator.SetDisplayName("MassTransit RabbitMQ Stress Console");
+                        hostConfigurator.SetServiceName("MassTransitStressConsole");
 
+                        hostConfigurator.AddCommandLineDefinition("rmqusername", v => username = v);
+                        hostConfigurator.AddCommandLineDefinition("rmqpassword", v => password = v);
+                        hostConfigurator.AddCommandLineDefinition("uri", v => serviceBusUri = new Uri(v));
+                        hostConfigurator.AddCommandLineDefinition("heartbeat", v => heartbeat = ushort.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("iterations", v => iterations = int.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("instances", v => instances = int.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("prefetch", v => prefetchCount = int.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("threads", v => consumerLimit = int.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("requests", v => requestsPerInstance = int.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("test", v => test = v);
+                        hostConfigurator.AddCommandLineDefinition("size", v => messageSize = int.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("cleanup", v => cleanup = bool.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("mixed", v => mixed = bool.Parse(v));
+                        hostConfigurator.AddCommandLineDefinition("debug", v => debug = v);
+                        hostConfigurator.ApplyCommandLine();
 
-                    return new SelectService(new StressService(serviceBusUri, username, password, heartbeat,
-                        iterations, instances, messageSize, cleanup, mixed, prefetchCount, consumerLimit, requestsPerInstance));
-                });
-            });
+                        hostConfigurator.Service(
+                            hostSettings =>
+                                {
+                                    if (!string.IsNullOrWhiteSpace(debug))
+                                    {
+                                        EnableDebug(debug);
+                                    }
+
+                                    if (test == "ingest")
+                                    {
+                                        return
+                                            new SelectService(
+                                                new StressIngestService(
+                                                    serviceBusUri, 
+                                                    username, 
+                                                    password, 
+                                                    heartbeat, 
+                                                    iterations, 
+                                                    instances, 
+                                                    messageSize, 
+                                                    cleanup, 
+                                                    mixed, 
+                                                    prefetchCount, 
+                                                    consumerLimit));
+                                    }
+
+                                    return
+                                        new SelectService(
+                                            new StressService(
+                                                serviceBusUri, 
+                                                username, 
+                                                password, 
+                                                heartbeat, 
+                                                iterations, 
+                                                instances, 
+                                                messageSize, 
+                                                cleanup, 
+                                                mixed, 
+                                                prefetchCount, 
+                                                consumerLimit, 
+                                                requestsPerInstance));
+                                });
+                    });
         }
 
-        static void EnableDebug(string debug)
+        private static void EnableDebug(string debug)
         {
             Console.WriteLine("Enabling debug for {0}", debug);
 
-            ILoggerRepository[] repositories = LogManager.GetAllRepositories();
+            var repositories = LogManager.GetAllRepositories();
             foreach (Hierarchy hierarchy in repositories)
             {
-                ILogger[] loggers = hierarchy.GetCurrentLoggers();
+                var loggers = hierarchy.GetCurrentLoggers();
                 foreach (Logger logger in loggers)
                 {
                     if (string.Compare(logger.Name, debug, StringComparison.OrdinalIgnoreCase) == 0)

@@ -1,12 +1,13 @@
-﻿namespace MassTransit.StressConsole
+﻿using System;
+
+namespace MassTransit.StressConsole
 {
-    using System;
-
-
-    public interface StressfulRequest
+    public interface IStressfulRequest
     {
         Guid RequestId { get; }
+
         DateTime Timestamp { get; }
+
         string Content { get; }
     }
 }

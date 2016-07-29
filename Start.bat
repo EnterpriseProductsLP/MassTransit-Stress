@@ -1,0 +1,1 @@
+src\MassTransit.StressConsole\bin\Release\mtstress.exe -rmqusername "test" -rmqpassword "test" -uri "rabbitmq://tsestmrmq01corp/loadtest_queue?prefetch=32" -heartbeat:3 -iterations:25000 -instances:10

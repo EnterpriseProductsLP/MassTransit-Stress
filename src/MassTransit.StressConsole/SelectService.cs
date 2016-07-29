@@ -1,12 +1,10 @@
-﻿namespace MassTransit.StressConsole
+﻿using Topshelf;
+
+namespace MassTransit.StressConsole
 {
-    using Topshelf;
-
-
-    public class SelectService :
-        ServiceControl
+    public class SelectService : ServiceControl
     {
-        readonly ServiceControl _actualService;
+        private readonly ServiceControl _actualService;
 
         public SelectService(ServiceControl actualService)
         {
